@@ -75,25 +75,47 @@ static const char *TAG = "example";
 
 static esp_err_t api_relay_handler(httpd_req_t *req)
 {
-    /*
     char*  buf;
     size_t buf_len;
-
+    char   api_metod[8];
+    char   api_relay_port[3];
+    int    relay_port[4];
     buf_len = httpd_req_get_url_query_len(req) + 1;
     if (buf_len > 1) {
         buf = malloc(buf_len);
         if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
             ESP_LOGI(TAG, "Found URL query => %s", buf);
-            char param[EXAMPLE_HTTP_QUERY_KEY_MAX_LEN], dec_param[EXAMPLE_HTTP_QUERY_KEY_MAX_LEN] = {0};
-            if (httpd_query_key_value(buf, "metod", param, sizeof(param)) == ESP_OK) {
-                ESP_LOGI(TAG, "Found URL query parameter => port=%s", param);
-                example_uri_decode(dec_param, param, strnlen(param, EXAMPLE_HTTP_QUERY_KEY_MAX_LEN));
-                ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
+            if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
+                (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
+                if ((strcmp("1", api_relay_port) == 0) ||
+                    (strcmp("2", api_relay_port) == 0) ||
+                    (strcmp("3", api_relay_port) == 0) ||
+                    (strcmp("4", api_relay_port) == 0)) {
+                    relay_port[1] = api_relay_port[0] - '0';
+                    printf("relay_port: %d\n", relay_port[1]);
+                }
+                if (strcmp("all", api_relay_port) == 0) {
+                    relay_port[1] = 1;
+                    relay_port[2] = 2;
+                    relay_port[3] = 3;
+                    relay_port[4] = 4;
+                    printf("relay_ports: %d,%d,%d,%d\n", relay_port[1], relay_port[2], relay_port[3], relay_port[4]);
+                }
+                if (strcmp("on", api_metod) == 0) {
+                    //ESP_LOGI(TAG, "Found URL query parameter => port=%s", api_metod);
+                    printf("HTTP API metod: on\n");
+                }
+                if (strcmp("off", api_metod) == 0) {
+                    printf("HTTP API metod: off\n");
+                }
+                if (strcmp("status", api_metod) == 0) {
+                    printf("HTTP API metod: status\n");
+                }
             }
         }
         free(buf);
     }
-    */
+
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, "ESP32_LYWSD03MMC\n", HTTPD_RESP_USE_STRLEN);
     
