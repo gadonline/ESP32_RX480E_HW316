@@ -79,7 +79,6 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
     size_t buf_len;
     char   api_metod[8];
     char   api_relay_port[8];
-    int    relay_port[4];
     buf_len = httpd_req_get_url_query_len(req) + 1;
     if (buf_len > 1) {
         buf = malloc(buf_len);
@@ -87,44 +86,34 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
             ESP_LOGI(TAG, "Found URL query => %s", buf);
             if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
                 (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
-                if ((!strcmp("1", api_relay_port)) ||
+                int level = 2;
+                if (!strcmp("on", api_metod)) {
+                    level = 0;
+                } else if (!strcmp("off", api_metod)) {
+                    level = 1;
+                }
+                
+                if ((level == 0 || level == 1) &&
+                   ((!strcmp("0", api_relay_port)) ||
+                    (!strcmp("1", api_relay_port)) ||
                     (!strcmp("2", api_relay_port)) ||
                     (!strcmp("3", api_relay_port)) ||
-                    (!strcmp("4", api_relay_port))) {
-                    relay_port[0] = api_relay_port[0] - '0';
-                    printf("relay_port: %d\n", relay_port[0]);
-                } else if (!strcmp("all", api_relay_port)) {
-                    relay_port[0] = 1;
-                    relay_port[1] = 2;
-                    relay_port[2] = 3;
-                    relay_port[3] = 4;
-                    printf("relay_ports: %d,%d,%d,%d\n", relay_port[0], relay_port[1], relay_port[2], relay_port[3]);
-                }
-                int i;
-                if (relay_port[0]) {
-                    if (!strcmp("on", api_metod)) {
-                        printf("HTTP API metod: on\n");
-                        for(i = 0; i < sizeof(relay_port) / sizeof(relay_port[0]); i++)
+                    (!strcmp("4", api_relay_port)))) {
+                    int port_i = api_relay_port[0] - '0';
+                    printf("relay_port: %d\n", port_i);
+                    if (port_i == 4) {
+                        for (int i = 0; i<relay_count; i++)
                         {
-                            if (relay_port[i] == 0) {
-                                break;
-                            }
-                            printf("API port: %d\n", relay_port[i]);
-                            gpio_set_level(relay_list[relay_port[i]].gpio_output_number, 0);
+                            relay_list[i].gpio_output_level = level;
+                            gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
                         }
-                    } else if (!strcmp("off", api_metod)) {
-                        printf("HTTP API metod: off\n");
-                        for(i = 0; i < sizeof(relay_port) / sizeof(relay_port[0]); i++)
-                        {
-                            if (relay_port[i] == 0) {
-                                break;
-                            }
-                            printf("API port: %d\n", relay_port[i]);
-                            gpio_set_level(relay_list[relay_port[i]].gpio_output_number, 1);
-                        }
-                    } else if (!strcmp("status", api_metod)) {
-                        printf("HTTP API metod: status\n");
+                    } else {
+                        relay_list[port_i].gpio_output_level = level;
+                        gpio_set_level(relay_list[port_i].gpio_output_number, relay_list[port_i].gpio_output_level);
                     }
+                }
+                if (!strcmp("status", api_metod)) {
+                    printf("HTTP API metod: status\n");
                 }
             }
         }
