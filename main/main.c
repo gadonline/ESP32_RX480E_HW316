@@ -77,20 +77,24 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
 {
     char*  buf;
     size_t buf_len;
-    char   api_metod[8];
+    char   api_metod[12];
     char   api_relay_port[8];
+    int level = 2;
     buf_len = httpd_req_get_url_query_len(req) + 1;
+    cJSON* relay_list_json = cJSON_CreateObject();
+    cJSON* relay_json = NULL;
     if (buf_len > 1) {
         buf = malloc(buf_len);
         if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
             ESP_LOGI(TAG, "Found URL query => %s", buf);
             if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
                 (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
-                int level = 2;
                 if (!strcmp("on", api_metod)) {
                     level = 0;
                 } else if (!strcmp("off", api_metod)) {
                     level = 1;
+                } else if (!strcmp("status", api_metod)) {
+                    level = 3;
                 }
                 
                 if ((level == 0 || level == 1) &&
@@ -112,17 +116,36 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
                         gpio_set_level(relay_list[port_i].gpio_output_number, relay_list[port_i].gpio_output_level);
                     }
                 }
-                if (!strcmp("status", api_metod)) {
-                    printf("HTTP API metod: status\n");
-                }
             }
         }
         free(buf);
     }
 
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, "ESP32_LYWSD03MMC\n", HTTPD_RESP_USE_STRLEN);
-    
+    if (level != 2 ) {
+        char port_str[8];
+        char status_str[8];
+        char name_str[8];
+        
+        for (int i = 0; i<relay_count; i++)
+        {
+            sprintf(port_str, "%d", i);
+            sprintf(name_str, "relay_%d", i);
+            if (relay_list[i].gpio_output_level == 0) {
+                sprintf(status_str, "%s", "on");
+            } else if (relay_list[i].gpio_output_level == 1) {
+                sprintf(status_str, "%s", "off");
+            }
+            relay_json = cJSON_CreateObject();
+            cJSON_AddStringToObject(relay_json, "port", port_str);
+            cJSON_AddStringToObject(relay_json, "status", status_str);
+            cJSON_AddItemToObject(relay_list_json, name_str, relay_json);
+        }
+    }
+    char *relay_list_json_print = cJSON_PrintUnformatted(relay_list_json);
+    cJSON_Delete(relay_list_json);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, relay_list_json_print, HTTPD_RESP_USE_STRLEN);
+    free(relay_list_json_print);
     return ESP_OK;
 }
 
