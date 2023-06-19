@@ -93,8 +93,6 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
                     level = 0;
                 } else if (!strcmp("off", api_metod)) {
                     level = 1;
-                } else if (!strcmp("status", api_metod)) {
-                    level = 3;
                 }
                 
                 if ((level == 0 || level == 1) &&
@@ -116,6 +114,9 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
                         gpio_set_level(relay_list[port_i].gpio_output_number, relay_list[port_i].gpio_output_level);
                     }
                 }
+            }
+            if (!strcmp("status", api_metod)) {
+                level = 3;
             }
         }
         free(buf);
