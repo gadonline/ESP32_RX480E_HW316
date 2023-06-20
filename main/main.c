@@ -150,12 +150,132 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t telegram_post_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, "ESP32_RX480E_HW316\n", HTTPD_RESP_USE_STRLEN);
+    
+    char *content;
+    content = malloc(500);
+    size_t recv_size = MIN(req->content_len, 500);
+
+    int ret = httpd_req_recv(req, content, recv_size);
+    printf("recv_size: %d\n", recv_size);
+    printf("ret: %d\n", ret);
+    if (ret != 0) {
+        cJSON* cjson_content = NULL;
+        cJSON* cjson_content_message = NULL;
+        cJSON* cjson_content_message_chat = NULL;
+        cJSON* cjson_content_message_chat_id = NULL;
+        cJSON* cjson_content_message_text = NULL;
+        
+        cjson_content = cJSON_Parse(content);
+        free(content);
+        
+        if(cjson_content != NULL)
+        {
+            cjson_content_message = cJSON_GetObjectItem(cjson_content, "message");
+            cjson_content_message_chat = cJSON_GetObjectItem(cjson_content_message, "chat");
+            cjson_content_message_chat_id = cJSON_GetObjectItemCaseSensitive(cjson_content_message_chat, "id");
+            cjson_content_message_text = cJSON_GetObjectItemCaseSensitive(cjson_content_message, "text");
+            bool send_message = false;
+            int chat_id;
+            
+            if (cJSON_IsString(cjson_content_message_text)) {
+                char *message = cjson_content_message_text->valuestring;
+                printf("message: %s\n", message);
+                if (strcmp("reboot", message) == 0) {
+                    abort();
+                }
+            }
+            
+            if (cJSON_IsNumber(cjson_content_message_chat_id)) {
+                chat_id = cjson_content_message_chat_id->valueint;
+                char str[] = TELEGRAM_CHAT_ID_ACCESS_LIST;
+                char *istr = strtok(str, ",");
+                
+                while (istr != NULL)
+                {
+                    if (atoi(istr) == chat_id) {
+                        send_message = true;
+                        break;
+                    }
+                    istr = strtok(NULL, ",");
+                }
+            }
+            
+            if (send_message) {
+                printf("free_heap_size_start: %lu\n", esp_get_free_heap_size());
+                char *url;
+                url = malloc(800);
+                char *relay;
+                char status_str[8];
+                
+                sprintf(url, "http://%s/bot%s/sendMessage?chat_id=%d&text=", TELEGRAM_HTTP_PROXY_SERVER, TELEGRAM_TOKEN, cjson_content_message_chat_id->valueint);
+                
+                for (int i = 0; i<relay_count; i++)
+                {
+                    //: %%3A
+                    //\n %%0A
+                    if (relay_list[i].gpio_output_level == 0) {
+                        sprintf(status_str, "%s", "on");
+                    } else if (relay_list[i].gpio_output_level == 1) {
+                        sprintf(status_str, "%s", "off");
+                    }
+                    relay = malloc(100);
+                    sprintf(relay, "relay_%d%%3A%%20%s%%0A", i, status_str);
+                    strcat(url, relay);
+                    free(relay);
+                }
+                
+                printf("url: %s\n", url);
+                
+                esp_http_client_config_t config = {
+                    .url = url,
+                    .crt_bundle_attach = esp_crt_bundle_attach,
+                    .buffer_size = 1024,
+                    .buffer_size_tx = 1024,
+                };
+                esp_http_client_handle_t client = esp_http_client_init(&config);
+                free(url);
+                esp_http_client_set_header(client, "Host", "api.telegram.org");
+                esp_err_t err;
+                
+                do {
+                    err = esp_http_client_perform(client);
+                }while(err == ESP_ERR_HTTP_EAGAIN);
+                
+                if (err == ESP_OK) {
+                    printf("HTTPS Status = %d, content_length = %lld\n",
+                            esp_http_client_get_status_code(client),
+                            esp_http_client_get_content_length(client));
+                } else {
+                    printf("Error perform http request %s", esp_err_to_name(err));
+                }
+                
+                esp_http_client_cleanup(client);
+                printf("free_heap_size_stop: %lu\n", esp_get_free_heap_size());
+            }
+        }
+        cJSON_Delete(cjson_content);
+    } else {
+        free(content);
+    }
+    
+    return ESP_OK;
+}
+
 static const httpd_uri_t api_relay = {
     .uri       = "/api/relay",
     .method    = HTTP_GET,
     .handler   = api_relay_handler
 };
 
+static const httpd_uri_t telegram = {
+    .uri       = "/ESP32_RX480E_HW316",
+    .method    = HTTP_POST,
+    .handler   = telegram_post_handler
+};
 
 static httpd_handle_t start_webserver(void)
 {
@@ -173,6 +293,7 @@ static httpd_handle_t start_webserver(void)
 
     ESP_LOGI(TAG, "Registering URI handlers");
     httpd_register_uri_handler(server, &api_relay);
+    httpd_register_uri_handler(server, &telegram);
     return server;
 }
 
