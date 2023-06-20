@@ -184,8 +184,44 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
             if (cJSON_IsString(cjson_content_message_text)) {
                 char *message = cjson_content_message_text->valuestring;
                 printf("message: %s\n", message);
-                if (strcmp("reboot", message) == 0) {
+                if (!strcmp("reboot", message)) {
                     abort();
+                } else if (!strcmp("on 0", message)) {
+                    relay_list[0].gpio_output_level = 0;
+                    gpio_set_level(relay_list[0].gpio_output_number, relay_list[0].gpio_output_level);
+                } else if (!strcmp("on 1", message)) {
+                    relay_list[1].gpio_output_level = 0;
+                    gpio_set_level(relay_list[1].gpio_output_number, relay_list[1].gpio_output_level);
+                } else if (!strcmp("on 2", message)) {
+                    relay_list[2].gpio_output_level = 0;
+                    gpio_set_level(relay_list[2].gpio_output_number, relay_list[2].gpio_output_level);
+                } else if (!strcmp("on 3", message)) {
+                    relay_list[3].gpio_output_level = 0;
+                    gpio_set_level(relay_list[3].gpio_output_number, relay_list[3].gpio_output_level);
+                } else if (!strcmp("on 4", message)) {
+                    for (int i = 0; i<relay_count; i++)
+                    {
+                        relay_list[i].gpio_output_level = 0;
+                        gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
+                    }
+                } else if (!strcmp("off 0", message)) {
+                    relay_list[0].gpio_output_level = 1;
+                    gpio_set_level(relay_list[0].gpio_output_number, relay_list[0].gpio_output_level);
+                } else if (!strcmp("off 1", message)) {
+                    relay_list[1].gpio_output_level = 1;
+                    gpio_set_level(relay_list[1].gpio_output_number, relay_list[1].gpio_output_level);
+                } else if (!strcmp("off 2", message)) {
+                    relay_list[2].gpio_output_level = 1;
+                    gpio_set_level(relay_list[2].gpio_output_number, relay_list[2].gpio_output_level);
+                } else if (!strcmp("off 3", message)) {
+                    relay_list[3].gpio_output_level = 1;
+                    gpio_set_level(relay_list[3].gpio_output_number, relay_list[3].gpio_output_level);
+                } else if (!strcmp("off 4", message)) {
+                    for (int i = 0; i<relay_count; i++)
+                    {
+                        relay_list[i].gpio_output_level = 1;
+                        gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
+                    }
                 }
             }
             
