@@ -21,6 +21,7 @@
 #define TELEGRAM_CHAT_ID_ACCESS_LIST CONFIG_TELEGRAM_CHAT_ID_ACCESS_LIST
 #define TELEGRAM_HTTP_PROXY_SERVER CONFIG_TELEGRAM_HTTP_PROXY_SERVER
 
+
 struct relay_struct {
     int gpio_output_number;
     int gpio_output_level;
@@ -314,24 +315,8 @@ static void connect_handler(void* arg, esp_event_base_t event_base, int32_t even
     }
 }
 
-void app_main(void)
+void radio_task(void *pvParameter)
 {
-    static httpd_handle_t server = NULL;
-
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    
-#ifdef CONFIG_EXAMPLE_CONNECT_WIFI
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
-#endif // CONFIG_EXAMPLE_CONNECT_WIFI
-#ifdef CONFIG_EXAMPLE_CONNECT_ETHERNET
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &connect_handler, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_DISCONNECTED, &disconnect_handler, &server));
-#endif // CONFIG_EXAMPLE_CONNECT_ETHERNET
-    ESP_ERROR_CHECK(example_connect());
-    
     relay_list[0].gpio_output_number = 16;
     relay_list[0].gpio_input_number  = 34;
     relay_list[1].gpio_output_number = 17;
@@ -351,7 +336,7 @@ void app_main(void)
         relay_list[i].gpio_output_level = 1;
         relay_list[i].gpio_input_last = gpio_get_level(relay_list[i].gpio_input_number);
     }
-
+    
     while(1) {
         for (i = 0; i<relay_count; i++)
         {
@@ -370,4 +355,19 @@ void app_main(void)
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+}
+
+void app_main(void)
+{
+    static httpd_handle_t server = NULL;
+
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    
+    xTaskCreate(radio_task, "blink_task", 1024, NULL, 5, NULL);
+    
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
+    ESP_ERROR_CHECK(example_connect());
 }
