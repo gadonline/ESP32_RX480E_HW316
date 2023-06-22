@@ -332,8 +332,7 @@ void radio_task(void *pvParameter)
     {
         gpio_set_direction(relay_list[i].gpio_output_number, GPIO_MODE_OUTPUT);
         gpio_set_direction(relay_list[i].gpio_input_number, GPIO_MODE_INPUT);
-        gpio_set_level(relay_list[i].gpio_output_number, 1);
-        relay_list[i].gpio_output_level = 1;
+        relay_list[i].gpio_output_level = gpio_get_level(relay_list[i].gpio_output_number);
         relay_list[i].gpio_input_last = gpio_get_level(relay_list[i].gpio_input_number);
     }
     
@@ -365,7 +364,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     
-    xTaskCreate(radio_task, "blink_task", 1024, NULL, 5, NULL);
+    xTaskCreate(radio_task, "blink_task", 2048, NULL, 5, NULL);
     
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
