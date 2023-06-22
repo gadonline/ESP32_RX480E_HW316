@@ -8,58 +8,18 @@
 */
 
 #include <esp_wifi.h>
-#include <esp_event.h>
 #include <esp_log.h>
-#include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-#include "esp_netif.h"
-#include "esp_eth.h"
 #include "protocol_examples_common.h"
-
 #include <esp_http_server.h>
-#include "esp_tls.h"
-
-
-#include "esp_bt.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gattc_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_gatt_common_api.h"
-
-#include "cJSON.h"
-
-
-#include <string.h>
-#include <stdlib.h>
-#include "math.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "protocol_examples_common.h"
-#include "protocol_examples_utils.h"
-#include "esp_tls.h"
-#include "esp_crt_bundle.h"
-
 #include "esp_http_client.h"
+#include "cJSON.h"
 #include "driver/gpio.h"
 
-#define GATTC_TAG "GATTC_DEMO"
-#define REMOTE_SERVICE_UUID        0x00FF
-#define REMOTE_NOTIFY_CHAR_UUID    0xFF01
-#define PROFILE_NUM      1
-#define PROFILE_A_APP_ID 0
-#define INVALID_HANDLE   0
 #define TELEGRAM_TOKEN CONFIG_TELEGRAM_TOKEN
 #define TELEGRAM_CHAT_ID_ACCESS_LIST CONFIG_TELEGRAM_CHAT_ID_ACCESS_LIST
 #define TELEGRAM_HTTP_PROXY_SERVER CONFIG_TELEGRAM_HTTP_PROXY_SERVER
-#define EXAMPLE_HTTP_QUERY_KEY_MAX_LEN  (64)
-
 
 struct relay_struct {
     int gpio_output_number;
@@ -268,7 +228,6 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 
                 esp_http_client_config_t config = {
                     .url = url,
-                    .crt_bundle_attach = esp_crt_bundle_attach,
                     .buffer_size = 1024,
                     .buffer_size_tx = 1024,
                 };
