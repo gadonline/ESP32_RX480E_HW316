@@ -108,6 +108,7 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, relay_list_json_print, HTTPD_RESP_USE_STRLEN);
     free(relay_list_json_print);
+    printf("free_heap_size_stop: %lu\n", esp_get_free_heap_size());
     return ESP_OK;
 }
 
@@ -145,43 +146,43 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
             if (cJSON_IsString(cjson_content_message_text)) {
                 char *message = cjson_content_message_text->valuestring;
                 printf("message: %s\n", message);
-                if (!strcmp("reboot", message)) {
+                char *message_strtok = strtok(message, " ");
+                int arguments_count = 2;
+                char *arguments[arguments_count];
+                int output_level = 2;
+                
+                int i = 0;
+                while ((message_strtok != NULL) && (i<arguments_count)) {
+                    printf ("%s\n",message_strtok);
+                    arguments[i] = message_strtok;
+                    message_strtok = strtok(NULL, " ");
+                    i++;
+                }
+                
+                if (!strcmp("reboot", arguments[0])) {
                     abort();
-                } else if (!strcmp("on 0", message)) {
-                    relay_list[0].gpio_output_level = 0;
-                    gpio_set_level(relay_list[0].gpio_output_number, relay_list[0].gpio_output_level);
-                } else if (!strcmp("on 1", message)) {
-                    relay_list[1].gpio_output_level = 0;
-                    gpio_set_level(relay_list[1].gpio_output_number, relay_list[1].gpio_output_level);
-                } else if (!strcmp("on 2", message)) {
-                    relay_list[2].gpio_output_level = 0;
-                    gpio_set_level(relay_list[2].gpio_output_number, relay_list[2].gpio_output_level);
-                } else if (!strcmp("on 3", message)) {
-                    relay_list[3].gpio_output_level = 0;
-                    gpio_set_level(relay_list[3].gpio_output_number, relay_list[3].gpio_output_level);
-                } else if (!strcmp("on 4", message)) {
-                    for (int i = 0; i<relay_count; i++)
-                    {
-                        relay_list[i].gpio_output_level = 0;
-                        gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
-                    }
-                } else if (!strcmp("off 0", message)) {
-                    relay_list[0].gpio_output_level = 1;
-                    gpio_set_level(relay_list[0].gpio_output_number, relay_list[0].gpio_output_level);
-                } else if (!strcmp("off 1", message)) {
-                    relay_list[1].gpio_output_level = 1;
-                    gpio_set_level(relay_list[1].gpio_output_number, relay_list[1].gpio_output_level);
-                } else if (!strcmp("off 2", message)) {
-                    relay_list[2].gpio_output_level = 1;
-                    gpio_set_level(relay_list[2].gpio_output_number, relay_list[2].gpio_output_level);
-                } else if (!strcmp("off 3", message)) {
-                    relay_list[3].gpio_output_level = 1;
-                    gpio_set_level(relay_list[3].gpio_output_number, relay_list[3].gpio_output_level);
-                } else if (!strcmp("off 4", message)) {
-                    for (int i = 0; i<relay_count; i++)
-                    {
-                        relay_list[i].gpio_output_level = 1;
-                        gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
+                } else if (!strcmp("on", arguments[0])) {
+                    output_level = 0;
+                } else if (!strcmp("off", arguments[0])) {
+                    output_level = 1;
+                } else if (!strcmp("set_name", arguments[0])) {
+                    printf ("set_name\n");
+                }
+                
+                if (output_level != 2) {
+                    if ((!strcmp("0", arguments[1])) ||
+                        (!strcmp("1", arguments[1])) ||
+                        (!strcmp("2", arguments[1])) ||
+                        (!strcmp("3", arguments[1]))) {
+                        int port_i = arguments[1][0] - '0';
+                        relay_list[port_i].gpio_output_level = output_level;
+                        gpio_set_level(relay_list[port_i].gpio_output_number, output_level);
+                    } else if (!strcmp("all", arguments[1])) {
+                        for (int i = 0; i<relay_count; i++)
+                        {
+                            relay_list[i].gpio_output_level = output_level;
+                            gpio_set_level(relay_list[i].gpio_output_number, output_level);
+                        }
                     }
                 }
             }
