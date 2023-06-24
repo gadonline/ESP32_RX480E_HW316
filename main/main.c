@@ -34,13 +34,26 @@ int relay_count = 4;
 
 static const char *TAG = "example";
 
+int port_detect(char *port_number) {
+    
+    if ((!strcmp("0", port_number)) ||
+        (!strcmp("1", port_number)) ||
+        (!strcmp("2", port_number)) ||
+        (!strcmp("3", port_number))) {
+        return( port_number[0] - '0');
+    } else {
+        return(42);
+    }
+    
+}
+
 static esp_err_t api_relay_handler(httpd_req_t *req)
 {
     char*  buf;
     size_t buf_len;
     char   api_metod[12];
     char   api_relay_port[8];
-    int level = 2;
+    int output_level = 2;
     buf_len = httpd_req_get_url_query_len(req) + 1;
     cJSON* relay_list_json = cJSON_CreateObject();
     cJSON* relay_json = NULL;
@@ -51,39 +64,34 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
             if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
                 (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
                 if (!strcmp("on", api_metod)) {
-                    level = 0;
+                    output_level = 0;
                 } else if (!strcmp("off", api_metod)) {
-                    level = 1;
+                    output_level = 1;
                 }
                 
-                if ((level == 0 || level == 1) &&
-                   ((!strcmp("0", api_relay_port)) ||
-                    (!strcmp("1", api_relay_port)) ||
-                    (!strcmp("2", api_relay_port)) ||
-                    (!strcmp("3", api_relay_port)) ||
-                    (!strcmp("4", api_relay_port)))) {
-                    int port_i = api_relay_port[0] - '0';
-                    printf("relay_port: %d\n", port_i);
-                    if (port_i == 4) {
+                if (output_level != 2) {
+                    int port_number = port_detect(api_relay_port);
+                    if (port_number != 42) {
+                        printf("port: %d\n", port_number);
+                        relay_list[port_number].gpio_output_level = output_level;
+                        gpio_set_level(relay_list[port_number].gpio_output_number, output_level);
+                    } else if (!strcmp("all", api_relay_port)) {
                         for (int i = 0; i<relay_count; i++)
                         {
-                            relay_list[i].gpio_output_level = level;
-                            gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
+                            relay_list[i].gpio_output_level = output_level;
+                            gpio_set_level(relay_list[i].gpio_output_number, output_level);
                         }
-                    } else {
-                        relay_list[port_i].gpio_output_level = level;
-                        gpio_set_level(relay_list[port_i].gpio_output_number, relay_list[port_i].gpio_output_level);
                     }
                 }
             }
             if (!strcmp("status", api_metod)) {
-                level = 3;
+                output_level = 3;
             }
         }
         free(buf);
     }
 
-    if (level != 2 ) {
+    if (output_level != 2 ) {
         char port_str[8];
         char status_str[8];
         char name_str[8];
@@ -145,11 +153,12 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
             
             if (cJSON_IsString(cjson_content_message_text)) {
                 char *message = cjson_content_message_text->valuestring;
-                printf("message: %s\n", message);
+                //printf("message: %s\n", message);
                 char *message_strtok = strtok(message, " ");
-                int arguments_count = 2;
+                int arguments_count = 3;
                 char *arguments[arguments_count];
                 int output_level = 2;
+                int port_number;
                 
                 int i = 0;
                 while ((message_strtok != NULL) && (i<arguments_count)) {
@@ -166,17 +175,18 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 } else if (!strcmp("off", arguments[0])) {
                     output_level = 1;
                 } else if (!strcmp("set_name", arguments[0])) {
-                    printf ("set_name\n");
+                    port_number = port_detect(arguments[1]);
+                    if (port_number && !(arguments[3][0] == '\0')) {
+                        printf ("set_name: %d\n", port_number);
+                    }
                 }
                 
                 if (output_level != 2) {
-                    if ((!strcmp("0", arguments[1])) ||
-                        (!strcmp("1", arguments[1])) ||
-                        (!strcmp("2", arguments[1])) ||
-                        (!strcmp("3", arguments[1]))) {
-                        int port_i = arguments[1][0] - '0';
-                        relay_list[port_i].gpio_output_level = output_level;
-                        gpio_set_level(relay_list[port_i].gpio_output_number, output_level);
+                    port_number = port_detect(arguments[1]);
+                    if (port_number != 42 ) {
+                        printf("port: %d\n", port_number);
+                        relay_list[port_number].gpio_output_level = output_level;
+                        gpio_set_level(relay_list[port_number].gpio_output_number, output_level);
                     } else if (!strcmp("all", arguments[1])) {
                         for (int i = 0; i<relay_count; i++)
                         {
