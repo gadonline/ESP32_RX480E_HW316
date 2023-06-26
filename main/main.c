@@ -27,6 +27,7 @@ struct relay_struct {
     int gpio_output_level;
     int gpio_input_number;
     int gpio_input_last;
+    char relay_name[16];
 };
 struct relay_struct relay_list[4];
 
@@ -176,8 +177,19 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                     output_level = 1;
                 } else if (!strcmp("set_name", arguments[0])) {
                     port_number = port_detect(arguments[1]);
-                    if (port_number && !(arguments[3][0] == '\0')) {
-                        printf ("set_name: %d\n", port_number);
+                    if (port_number != 42 && arguments[2][0] != '\0') {
+                        nvs_handle_t my_handle;
+                        esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+                        if (err != ESP_OK) {
+                            printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+                        } else {
+                            printf ("set_name_%d: %s\n", port_number, arguments[2]);
+                            sprintf(relay_list[port_number].relay_name, "%s", arguments[2]);
+                            char relay_key[12];
+                            sprintf(relay_key, "relay_%d", port_number);
+                            nvs_set_str(my_handle, relay_key, relay_list[port_number].relay_name);
+                            nvs_close(my_handle);
+                        }
                     }
                 }
                 
@@ -231,7 +243,7 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                         sprintf(status_str, "%s", "off");
                     }
                     relay = malloc(100);
-                    sprintf(relay, "relay_%d%%3A%%20%s%%0A", i, status_str);
+                    sprintf(relay, "%d%%3A%s%%3A%%20%s%%0A", i, relay_list[i].relay_name, status_str);
                     strcat(url, relay);
                     free(relay);
                 }
@@ -336,7 +348,7 @@ void radio_task(void *pvParameter)
     relay_list[2].gpio_input_number  = 36;
     relay_list[3].gpio_output_number = 26;
     relay_list[3].gpio_input_number  = 39;
-    
+
     int i;
     int input_level;
     for (i = 0; i<relay_count; i++)
@@ -346,7 +358,29 @@ void radio_task(void *pvParameter)
         relay_list[i].gpio_output_level = gpio_get_level(relay_list[i].gpio_output_number);
         relay_list[i].gpio_input_last = gpio_get_level(relay_list[i].gpio_input_number);
     }
-    
+    /*
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t required_size;
+        char* relay_name = malloc(required_size);
+        char relay_key[18];
+        
+        for (i = 0; i<relay_count; i++)
+        {
+            sprintf(relay_key, "relay_%d", i);
+            err = nvs_get_str(my_handle, relay_key, relay_name, &required_size);
+            if (err != ESP_OK) {
+                sprintf(relay_list[i].relay_name, "%s", relay_name);
+            } else {
+                sprintf(relay_list[i].relay_name, "empty");
+            }
+        }
+        nvs_close(my_handle);
+    }
+    */
     while(1) {
         for (i = 0; i<relay_count; i++)
         {
