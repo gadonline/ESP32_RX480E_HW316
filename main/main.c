@@ -27,7 +27,7 @@ struct relay_struct {
     int gpio_output_level;
     int gpio_input_number;
     int gpio_input_last;
-    char relay_name[16];
+    char relay_name[80];
 };
 struct relay_struct relay_list[4];
 
@@ -127,8 +127,8 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
     httpd_resp_send(req, "ESP32_RX480E_HW316\n", HTTPD_RESP_USE_STRLEN);
     
     char *content;
-    content = malloc(500);
-    size_t recv_size = MIN(req->content_len, 500);
+    content = malloc(1000);
+    size_t recv_size = MIN(req->content_len, 1000);
 
     int ret = httpd_req_recv(req, content, recv_size);
     printf("recv_size: %d\n", recv_size);
@@ -229,21 +229,21 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 char *url;
                 url = malloc(800);
                 char *relay;
-                char status_str[8];
+                char status_str[32];
                 
                 sprintf(url, "http://%s/bot%s/sendMessage?chat_id=%d&text=", TELEGRAM_HTTP_PROXY_SERVER, TELEGRAM_TOKEN, cjson_content_message_chat_id->valueint);
                 
                 for (int i = 0; i<relay_count; i++)
                 {
-                    //: %%3A
-                    //\n %%0A
+                    //: %3A
+                    //\n %0A
                     if (relay_list[i].gpio_output_level == 0) {
-                        sprintf(status_str, "%s", "on");
+                        sprintf(status_str, "%s", "%F0%9F%8C%95"); //on
                     } else if (relay_list[i].gpio_output_level == 1) {
-                        sprintf(status_str, "%s", "off");
+                        sprintf(status_str, "%s", "%F0%9F%8C%91"); //off
                     }
-                    relay = malloc(100);
-                    sprintf(relay, "%d%%3A%s%%3A%%20%s%%0A", i, relay_list[i].relay_name, status_str);
+                    relay = malloc(200);
+                    sprintf(relay, "%%3%d%%E2%%83%%A3%s%%20%s%%0A", i, status_str, relay_list[i].relay_name);
                     strcat(url, relay);
                     free(relay);
                 }
