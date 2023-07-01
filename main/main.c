@@ -65,9 +65,9 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
             if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
                 (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
                 if (!strcmp("on", api_metod)) {
-                    output_level = 0;
-                } else if (!strcmp("off", api_metod)) {
                     output_level = 1;
+                } else if (!strcmp("off", api_metod)) {
+                    output_level = 0;
                 }
                 
                 if (output_level != 2) {
@@ -101,9 +101,9 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
         {
             sprintf(port_str, "%d", i);
             sprintf(name_str, "relay_%d", i);
-            if (relay_list[i].gpio_output_level == 0) {
+            if (relay_list[i].gpio_output_level == 1) {
                 sprintf(status_str, "%s", "on");
-            } else if (relay_list[i].gpio_output_level == 1) {
+            } else if (relay_list[i].gpio_output_level == 0) {
                 sprintf(status_str, "%s", "off");
             }
             relay_json = cJSON_CreateObject();
@@ -172,9 +172,9 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 if (!strcmp("reboot", arguments[0])) {
                     abort();
                 } else if (!strcmp("on", arguments[0])) {
-                    output_level = 0;
-                } else if (!strcmp("off", arguments[0])) {
                     output_level = 1;
+                } else if (!strcmp("off", arguments[0])) {
+                    output_level = 0;
                 } else if (!strcmp("set_name", arguments[0])) {
                     port_number = port_detect(arguments[1]);
                     if (port_number != 42 && arguments[2][0] != '\0') {
@@ -237,9 +237,9 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 {
                     //: %3A
                     //\n %0A
-                    if (relay_list[i].gpio_output_level == 0) {
+                    if (relay_list[i].gpio_output_level == 1) {
                         sprintf(status_str, "%s", "%F0%9F%8C%95"); //on
-                    } else if (relay_list[i].gpio_output_level == 1) {
+                    } else if (relay_list[i].gpio_output_level == 0) {
                         sprintf(status_str, "%s", "%F0%9F%8C%91"); //off
                     }
                     relay = malloc(200);
