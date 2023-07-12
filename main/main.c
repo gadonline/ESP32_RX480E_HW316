@@ -171,9 +171,9 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 
                 if (!strcmp("reboot", arguments[0])) {
                     abort();
-                } else if (!strcmp("on", arguments[0])) {
+                } else if (!strcmp("on", arguments[0]) || !strcmp("On", arguments[0])) {
                     output_level = 1;
-                } else if (!strcmp("off", arguments[0])) {
+                } else if (!strcmp("off", arguments[0]) || !strcmp("Off", arguments[0])) {
                     output_level = 0;
                 } else if (!strcmp("set_name", arguments[0])) {
                     port_number = port_detect(arguments[1]);
