@@ -340,14 +340,14 @@ static void connect_handler(void* arg, esp_event_base_t event_base, int32_t even
 
 void radio_task(void *pvParameter)
 {
-    relay_list[0].gpio_output_number = 16;
+    relay_list[0].gpio_output_number = 32;
     relay_list[0].gpio_input_number  = 34;
-    relay_list[1].gpio_output_number = 17;
-    relay_list[1].gpio_input_number  = 35;
+    relay_list[1].gpio_output_number = 33;
+    relay_list[1].gpio_input_number  = 39;
     relay_list[2].gpio_output_number = 25;
     relay_list[2].gpio_input_number  = 36;
     relay_list[3].gpio_output_number = 26;
-    relay_list[3].gpio_input_number  = 39;
+    relay_list[3].gpio_input_number  = 35;
 
     int i;
     int input_level;
