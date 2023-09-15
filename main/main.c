@@ -340,19 +340,21 @@ static void connect_handler(void* arg, esp_event_base_t event_base, int32_t even
 
 void radio_task(void *pvParameter)
 {
-    relay_list[0].gpio_output_number = 32;
-    relay_list[0].gpio_input_number  = 34;
-    relay_list[1].gpio_output_number = 33;
-    relay_list[1].gpio_input_number  = 39;
-    relay_list[2].gpio_output_number = 25;
-    relay_list[2].gpio_input_number  = 36;
-    relay_list[3].gpio_output_number = 26;
-    relay_list[3].gpio_input_number  = 35;
+    relay_list[0].gpio_output_number = 5;
+    relay_list[0].gpio_input_number  = 2;
+    relay_list[1].gpio_output_number = 4;
+    relay_list[1].gpio_input_number  = 3;
+    relay_list[2].gpio_output_number = 8;
+    relay_list[2].gpio_input_number  = 10;
+    relay_list[3].gpio_output_number = 9;
+    relay_list[3].gpio_input_number  = 6;
 
     int i;
     int input_level;
     for (i = 0; i<relay_count; i++)
     {
+        gpio_reset_pin(relay_list[i].gpio_output_number);
+        gpio_reset_pin(relay_list[i].gpio_input_number);
         gpio_set_direction(relay_list[i].gpio_output_number, GPIO_MODE_OUTPUT);
         gpio_set_direction(relay_list[i].gpio_input_number, GPIO_MODE_INPUT);
         relay_list[i].gpio_output_level = gpio_get_level(relay_list[i].gpio_output_number);
