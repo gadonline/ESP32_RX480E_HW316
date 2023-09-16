@@ -28,6 +28,7 @@ struct relay_struct {
     int gpio_input_number;
     int gpio_input_last;
     char relay_name[80];
+    char *relay_emoji;
 };
 struct relay_struct relay_list[4];
 
@@ -46,6 +47,29 @@ int port_detect(char *port_number) {
         return(42);
     }
     
+}
+
+char* urlencode(char* originalText)
+{
+    // allocate memory for the worst possible case (all characters need to be encoded)
+    char *encodedText = (char *)malloc(sizeof(char)*strlen(originalText)*3+1);
+    
+    const char *hex = "0123456789abcdef";
+    
+    int pos = 0;
+    for (int i = 0; i < strlen(originalText); i++) {
+        if (('a' <= originalText[i] && originalText[i] <= 'z')
+            || ('A' <= originalText[i] && originalText[i] <= 'Z')
+            || ('0' <= originalText[i] && originalText[i] <= '9')) {
+                encodedText[pos++] = originalText[i];
+            } else {
+                encodedText[pos++] = '%';
+                encodedText[pos++] = hex[originalText[i] >> 4];
+                encodedText[pos++] = hex[originalText[i] & 15];
+            }
+    }
+    encodedText[pos] = '\0';
+    return encodedText;
 }
 
 static esp_err_t api_relay_handler(httpd_req_t *req)
@@ -235,16 +259,14 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 
                 for (int i = 0; i<relay_count; i++)
                 {
-                    //: %3A
-                    //\n %0A
                     if (relay_list[i].gpio_output_level == 1) {
-                        sprintf(status_str, "%s", "%F0%9F%8C%95"); //on
+                        sprintf(status_str, "%s", "🌕"); //on
                     } else if (relay_list[i].gpio_output_level == 0) {
-                        sprintf(status_str, "%s", "%F0%9F%8C%91"); //off
+                        sprintf(status_str, "%s", "🌑"); //off
                     }
                     relay = malloc(200);
-                    sprintf(relay, "%%3%d%%E2%%83%%A3%s%%20%s%%0A", i, status_str, relay_list[i].relay_name);
-                    strcat(url, relay);
+                    sprintf(relay, "%s%s %s\n", relay_list[i].relay_emoji, status_str, relay_list[i].relay_name);
+                    strcat(url, urlencode(relay));
                     free(relay);
                 }
                 
@@ -348,7 +370,10 @@ void radio_task(void *pvParameter)
     relay_list[2].gpio_input_number  = 10;
     relay_list[3].gpio_output_number = 9;
     relay_list[3].gpio_input_number  = 6;
-
+    relay_list[0].relay_emoji = "0⃣";
+    relay_list[1].relay_emoji = "1⃣";
+    relay_list[2].relay_emoji = "2⃣";
+    relay_list[3].relay_emoji = "3⃣";
     int i;
     int input_level;
     for (i = 0; i<relay_count; i++)
