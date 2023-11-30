@@ -19,7 +19,7 @@
 
 #define TELEGRAM_TOKEN CONFIG_TELEGRAM_TOKEN
 #define TELEGRAM_CHAT_ID_ACCESS_LIST CONFIG_TELEGRAM_CHAT_ID_ACCESS_LIST
-#define TELEGRAM_HTTP_PROXY_SERVER CONFIG_TELEGRAM_HTTP_PROXY_SERVER
+#define TELEGRAM_HTTP_API_URL CONFIG_TELEGRAM_HTTP_API_URL
 
 
 struct relay_struct {
@@ -255,7 +255,11 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 char *relay;
                 char status_str[32];
                 
-                sprintf(url, "http://%s/bot%s/sendMessage?chat_id=%d&text=", TELEGRAM_HTTP_PROXY_SERVER, TELEGRAM_TOKEN, cjson_content_message_chat_id->valueint);
+                sprintf(url, "%s/bot%s/sendMessage?chat_id=%d&text=",
+                    TELEGRAM_HTTP_API_URL,
+                    TELEGRAM_TOKEN,
+                    cjson_content_message_chat_id->valueint
+                );
                 
                 for (int i = 0; i<relay_count; i++)
                 {
