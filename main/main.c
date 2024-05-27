@@ -141,7 +141,7 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, relay_list_json_print, HTTPD_RESP_USE_STRLEN);
     free(relay_list_json_print);
-    printf("free_heap_size_stop: %lu\n", esp_get_free_heap_size());
+    printf("free_heap_size_stop: %d\n", esp_get_free_heap_size());
     return ESP_OK;
 }
 
@@ -249,7 +249,7 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
             }
             
             if (send_message) {
-                printf("free_heap_size_start: %lu\n", esp_get_free_heap_size());
+                printf("free_heap_size_start: %d\n", esp_get_free_heap_size());
                 char *url;
                 url = malloc(800);
                 char *relay;
@@ -291,7 +291,7 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 }while(err == ESP_ERR_HTTP_EAGAIN);
                 
                 if (err == ESP_OK) {
-                    printf("HTTPS Status = %d, content_length = %lld\n",
+                    printf("HTTPS Status = %d, content_length = %d\n",
                             esp_http_client_get_status_code(client),
                             esp_http_client_get_content_length(client));
                 } else {
@@ -299,7 +299,7 @@ static esp_err_t telegram_post_handler(httpd_req_t *req)
                 }
                 
                 esp_http_client_cleanup(client);
-                printf("free_heap_size_stop: %lu\n", esp_get_free_heap_size());
+                printf("free_heap_size_stop: %d\n", esp_get_free_heap_size());
             }
         }
         cJSON_Delete(cjson_content);
@@ -420,7 +420,7 @@ void radio_task(void *pvParameter)
                 gpio_set_level(relay_list[i].gpio_output_number, relay_list[i].gpio_output_level);
                 relay_list[i].gpio_input_last = input_level;
                 printf("relay %d set level: %d\n", i, relay_list[i].gpio_output_level);
-                printf("free_heap_size: %lu\n", esp_get_free_heap_size());
+                printf("free_heap_size: %d\n", esp_get_free_heap_size());
             }
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
