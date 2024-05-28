@@ -484,11 +484,6 @@ void app_main(void)
     
     while(true){
         printf("free_heap_size: %d\n", esp_get_free_heap_size());
-        
-        for (int i = 0; i<10; i++)
-        {
-            printf("step %d\n", i);
-            get_updates();
-        }
+        get_updates();
     }
 }
