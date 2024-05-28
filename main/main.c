@@ -445,7 +445,6 @@ static void get_updates()
     int update_id = 0;
     bool send_message = false;
     int chat_id;
-    bool full_report = false;
     char *url;
     url = malloc(800);
     sprintf(url, "%s/bot%s/getUpdates?limit=1&offset=%d",
@@ -510,6 +509,8 @@ static void get_updates()
             char *message_strtok = strtok(message, " ");
             int arguments_count = 3;
             char *arguments[arguments_count];
+            int output_level = 2;
+            int port_number;
             
             int i = 0;
             while ((message_strtok != NULL) && (i<arguments_count)) {
@@ -518,28 +519,43 @@ static void get_updates()
                 message_strtok = strtok(NULL, " ");
                 i++;
             }
+            
             if (!strcmp("reboot", arguments[0])) {
                 reboot_status = true;
+            } else if (!strcmp("on", arguments[0]) || !strcmp("On", arguments[0])) {
+                output_level = 1;
+            } else if (!strcmp("off", arguments[0]) || !strcmp("Off", arguments[0])) {
+                output_level = 0;
             } else if (!strcmp("set_name", arguments[0])) {
-                nvs_handle_t my_handle;
-                esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
-                if (err != ESP_OK) {
-                    printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-                } else {
-                    printf("Save location to %s: %s\n", arguments[1], arguments[2]);
-                    nvs_set_str(my_handle, arguments[1], arguments[2]);
-                    nvs_close(my_handle);
-                    
-                    for (i = 0; i<relay_count; i++)
-                    {
-                        if (!strcmp(arguments[1], (char *)&relay_list[i].relay_name)) {
-                            //sprintf(relay_list[i].location, "%s", arguments[2]);
-                            break;
-                        }
+                port_number = port_detect(arguments[1]);
+                if (port_number != 42 && arguments[2][0] != '\0') {
+                    nvs_handle_t my_handle;
+                    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+                    if (err != ESP_OK) {
+                        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+                    } else {
+                        printf ("set_name_%d: %s\n", port_number, arguments[2]);
+                        sprintf(relay_list[port_number].relay_name, "%s", arguments[2]);
+                        char relay_key[12];
+                        sprintf(relay_key, "relay_%d", port_number);
+                        nvs_set_str(my_handle, relay_key, relay_list[port_number].relay_name);
+                        nvs_close(my_handle);
                     }
                 }
-            } else if (!strcmp("full", arguments[0]) || !strcmp("Full", arguments[0])) {
-                full_report = true;
+            }
+            if (output_level != 2) {
+                port_number = port_detect(arguments[1]);
+                if (port_number != 42 ) {
+                    printf("port: %d\n", port_number);
+                    relay_list[port_number].gpio_output_level = output_level;
+                    gpio_set_level(relay_list[port_number].gpio_output_number, output_level);
+                } else if (!strcmp("all", arguments[1])) {
+                    for (int i = 0; i<relay_count; i++)
+                    {
+                        relay_list[i].gpio_output_level = output_level;
+                        gpio_set_level(relay_list[i].gpio_output_number, output_level);
+                    }
+                }
             }
         }
         if (cJSON_IsNumber(cjson_content_message_chat_id)) {
@@ -564,7 +580,6 @@ static void get_updates()
             printf("free_heap_size_start: %d\n", esp_get_free_heap_size());
             char *url_message;
             url_message = malloc(3072);
-            char *device;
             char *relay;
             char status_str[32];
             
@@ -574,27 +589,7 @@ static void get_updates()
                 cjson_content_message_chat_id->valueint
             );
             
-            int i;
-            if (full_report == true) {
-                for (i = 0; i<relay_count; i++)
-                {
-                    device = malloc(100);
-                    /*
-                    sprintf(device, "%s 🌡%.1f°💧%d%%\nlocation: %s\nbat: %d%% (%d mV)\nrssi: %d\n\n",
-                        relay_list[i].name,
-                        relay_list[i].temp / 10,
-                        relay_list[i].hum,
-                        relay_list[i].location,
-                        relay_list[i].bat_pct,
-                        relay_list[i].bat_v,
-                        relay_list[i].rssi
-                    );
-                    */
-                    printf("device: %s", device);
-                    strcat(url_message, urlencode(device));
-                    free(device);
-                }
-            } else if (reboot_status == true) {
+            if (reboot_status == true) {
                 strcat(url_message, urlencode("Reboot system!"));
             } else {
                 for (int i = 0; i<relay_count; i++)
