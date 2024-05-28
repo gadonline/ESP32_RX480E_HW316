@@ -16,6 +16,9 @@
 #include "esp_http_client.h"
 #include "cJSON.h"
 #include "driver/gpio.h"
+#include "esp_tls.h"
+#include "esp_crt_bundle.h"
+
 
 #define TELEGRAM_TOKEN CONFIG_TELEGRAM_TOKEN
 #define TELEGRAM_CHAT_ID_ACCESS_LIST CONFIG_TELEGRAM_CHAT_ID_ACCESS_LIST
@@ -33,6 +36,8 @@ struct relay_struct {
 struct relay_struct relay_list[4];
 
 int relay_count = 4;
+int offset = 0;
+bool reboot_status = false;
 
 static const char *TAG = "example";
 
@@ -427,6 +432,219 @@ void radio_task(void *pvParameter)
     }
 }
 
+static void get_updates()
+{
+    long long int Timer1 = esp_timer_get_time();
+    cJSON* cjson_content = NULL;
+    cJSON* cjson_content_result = NULL;
+    cJSON* cjson_content_update_id = NULL;
+    cJSON* cjson_content_message = NULL;
+    cJSON* cjson_content_message_chat = NULL;
+    cJSON* cjson_content_message_chat_id = NULL;
+    cJSON* cjson_content_message_text = NULL;
+    int update_id = 0;
+    bool send_message = false;
+    int chat_id;
+    bool full_report = false;
+    char *url;
+    url = malloc(800);
+    sprintf(url, "%s/bot%s/getUpdates?limit=1&offset=%d",
+        TELEGRAM_HTTP_API_URL,
+        TELEGRAM_TOKEN,
+        offset
+    );
+    printf("url: %s\n", url);
+    
+    char output_buffer[512] = {0};
+    int content_length = 0;
+    esp_http_client_config_t config = {
+        .url = url,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .buffer_size = 1024,
+        .buffer_size_tx = 1024,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    // GET Request
+    esp_http_client_set_method(client, HTTP_METHOD_GET);
+    free(url);
+    esp_http_client_set_header(client, "Host", "api.telegram.org");
+    esp_err_t err = esp_http_client_open(client, 0);
+    
+    if (err != ESP_OK) {
+        printf("Failed to open HTTP connection: %s\n", esp_err_to_name(err));
+    } else {
+        content_length = esp_http_client_fetch_headers(client);
+        if (content_length > 23) {
+            
+            int data_read = esp_http_client_read_response(client, output_buffer, 1024);
+            
+            if (data_read >= 0) {
+                printf("HTTP GET Status = %d, content_length = %d\n",
+                esp_http_client_get_status_code(client),
+                esp_http_client_get_content_length(client));
+                //printf("Response: %s\n", output_buffer);
+                cjson_content = cJSON_Parse(output_buffer);
+            } else {
+                printf("Failed to read response\n");
+            }
+        }
+    }
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
+    if (reboot_status == true) {
+        printf("Reboot system!\n");
+        abort();
+    }
+    if(cjson_content != NULL)
+    {
+        cjson_content_result = cJSON_GetArrayItem(cJSON_GetObjectItem(cjson_content, "result"), 0);
+        cjson_content_update_id = cJSON_GetObjectItemCaseSensitive(cjson_content_result, "update_id");
+        cjson_content_message = cJSON_GetObjectItem(cjson_content_result, "message");
+        cjson_content_message_chat = cJSON_GetObjectItem(cjson_content_message, "chat");
+        cjson_content_message_chat_id = cJSON_GetObjectItemCaseSensitive(cjson_content_message_chat, "id");
+        cjson_content_message_text = cJSON_GetObjectItemCaseSensitive(cjson_content_message, "text");
+        
+        if (cJSON_IsString(cjson_content_message_text)) {
+            char *message = cjson_content_message_text->valuestring;
+            char *message_strtok = strtok(message, " ");
+            int arguments_count = 3;
+            char *arguments[arguments_count];
+            
+            int i = 0;
+            while ((message_strtok != NULL) && (i<arguments_count)) {
+                printf ("message: %s\n", message);
+                arguments[i] = message_strtok;
+                message_strtok = strtok(NULL, " ");
+                i++;
+            }
+            if (!strcmp("reboot", arguments[0])) {
+                reboot_status = true;
+            } else if (!strcmp("set_name", arguments[0])) {
+                nvs_handle_t my_handle;
+                esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+                if (err != ESP_OK) {
+                    printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+                } else {
+                    printf("Save location to %s: %s\n", arguments[1], arguments[2]);
+                    nvs_set_str(my_handle, arguments[1], arguments[2]);
+                    nvs_close(my_handle);
+                    
+                    for (i = 0; i<relay_count; i++)
+                    {
+                        if (!strcmp(arguments[1], (char *)&relay_list[i].relay_name)) {
+                            //sprintf(relay_list[i].location, "%s", arguments[2]);
+                            break;
+                        }
+                    }
+                }
+            } else if (!strcmp("full", arguments[0]) || !strcmp("Full", arguments[0])) {
+                full_report = true;
+            }
+        }
+        if (cJSON_IsNumber(cjson_content_message_chat_id)) {
+            chat_id = cjson_content_message_chat_id->valueint;
+            char str[] = TELEGRAM_CHAT_ID_ACCESS_LIST;
+            char *istr = strtok(str, ",");
+            
+            while (istr != NULL)
+            {
+                if (atoi(istr) == chat_id) {
+                    send_message = true;
+                    break;
+                }
+                istr = strtok(NULL, ",");
+            }
+        }
+        if (cJSON_IsNumber(cjson_content_update_id)) {
+            update_id = cjson_content_update_id->valueint;
+            printf("update_id: %d\n", update_id);
+        }
+        if (send_message) {
+            printf("free_heap_size_start: %d\n", esp_get_free_heap_size());
+            char *url_message;
+            url_message = malloc(3072);
+            char *device;
+            char *relay;
+            char status_str[32];
+            
+            sprintf(url_message, "%s/bot%s/sendMessage?chat_id=%d&text=",
+                TELEGRAM_HTTP_API_URL,
+                TELEGRAM_TOKEN,
+                cjson_content_message_chat_id->valueint
+            );
+            
+            int i;
+            if (full_report == true) {
+                for (i = 0; i<relay_count; i++)
+                {
+                    device = malloc(100);
+                    /*
+                    sprintf(device, "%s 🌡%.1f°💧%d%%\nlocation: %s\nbat: %d%% (%d mV)\nrssi: %d\n\n",
+                        relay_list[i].name,
+                        relay_list[i].temp / 10,
+                        relay_list[i].hum,
+                        relay_list[i].location,
+                        relay_list[i].bat_pct,
+                        relay_list[i].bat_v,
+                        relay_list[i].rssi
+                    );
+                    */
+                    printf("device: %s", device);
+                    strcat(url_message, urlencode(device));
+                    free(device);
+                }
+            } else if (reboot_status == true) {
+                strcat(url_message, urlencode("Reboot system!"));
+            } else {
+                for (int i = 0; i<relay_count; i++)
+                {
+                    if (relay_list[i].gpio_output_level == 1) {
+                        sprintf(status_str, "%s", "🌕"); //on
+                    } else if (relay_list[i].gpio_output_level == 0) {
+                        sprintf(status_str, "%s", "🌑"); //off
+                    }
+                    relay = malloc(200);
+                    sprintf(relay, "%s%s %s\n", relay_list[i].relay_emoji, status_str, relay_list[i].relay_name);
+                    strcat(url_message, urlencode(relay));
+                    free(relay);
+                }
+            }
+            
+            printf("strlen url_message: %d\n", strlen(url_message));
+            
+            esp_http_client_config_t config = {
+                .url = url_message,
+                .crt_bundle_attach = esp_crt_bundle_attach,
+                .buffer_size = 4096,
+                .buffer_size_tx = 4096,
+            };
+            esp_http_client_handle_t client = esp_http_client_init(&config);
+            free(url_message);
+            esp_http_client_set_header(client, "Host", "api.telegram.org");
+            esp_err_t err;
+            
+            do {
+                err = esp_http_client_perform(client);
+            }while(err == ESP_ERR_HTTP_EAGAIN);
+            
+            if (err == ESP_OK) {
+                offset = update_id+1;
+                printf("HTTP Status = %d, content_length = %d\n",
+                        esp_http_client_get_status_code(client),
+                        esp_http_client_get_content_length(client));
+            } else {
+                printf("Error perform http request %s", esp_err_to_name(err));
+            }
+            
+            esp_http_client_cleanup(client);
+            printf("free_heap_size_stop: %d\n", esp_get_free_heap_size());
+        }
+    }
+    cJSON_Delete(cjson_content);
+    printf("Difference: %lld ms\n", (esp_timer_get_time()-Timer1)/1000);
+}
+
 void app_main(void)
 {
     static httpd_handle_t server = NULL;
@@ -440,4 +658,14 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
     ESP_ERROR_CHECK(example_connect());
+    
+    while(true){
+        printf("free_heap_size: %d\n", esp_get_free_heap_size());
+        
+        for (int i = 0; i<10; i++)
+        {
+            printf("step %d\n", i);
+            get_updates();
+        }
+    }
 }
