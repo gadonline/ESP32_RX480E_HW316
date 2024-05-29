@@ -260,6 +260,7 @@ void radio_task(void *pvParameter)
     }
 }
 
+#ifdef CONFIG_TELEGRAM_CONTROL
 static void get_updates()
 {
     long long int Timer1 = esp_timer_get_time();
@@ -467,6 +468,7 @@ static void get_updates()
     cJSON_Delete(cjson_content);
     printf("Difference: %lld ms\n", (esp_timer_get_time()-Timer1)/1000);
 }
+#endif //CONFIG_TELEGRAM_CONTROL
 
 void app_main(void)
 {
@@ -482,8 +484,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
     ESP_ERROR_CHECK(example_connect());
     
+    #ifdef CONFIG_TELEGRAM_CONTROL
     while(true){
         printf("free_heap_size: %d\n", esp_get_free_heap_size());
         get_updates();
     }
+    #endif //CONFIG_TELEGRAM_CONTROL
 }

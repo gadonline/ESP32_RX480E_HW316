@@ -1,5 +1,10 @@
 menu "Telegram Configuration"
 
+    config TELEGRAM_CONTROL
+        bool "Use control via Telegram"
+        help
+            Enable for relay control via Telegram
+
     config TELEGRAM_TOKEN
         string "Telegram API token"
         default "123456789:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
@@ -16,6 +21,6 @@ menu "Telegram Configuration"
         string "Telegram HTTP API URL"
         default "https://api.telegram.org"
         help
-            Telegram API token.
+            Telegram API proxy URL.
 
 endmenu
