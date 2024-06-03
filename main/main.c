@@ -157,6 +157,7 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
                             nvs_set_str(my_handle, relay_key, relay_list[port_number].relay_name);
                             nvs_close(my_handle);
                         }
+                        output_level = relay_list[port_number].gpio_output_level;
                     }
                 }
                 
