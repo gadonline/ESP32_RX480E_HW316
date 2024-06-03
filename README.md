@@ -85,7 +85,15 @@ idf.py monitor
 HTTP API
 
 ```
-/api/relay?metod=on&port=(1-4|all) HTTP/1.1 200 Ok
-/api/relay?metod=off&port=(1-4|all) HTTP/1.1 200 Ok
-/api/relay?metod=status&port=(1-4|all) [{"port": 1,"status": "on"}] [{"port":1,"status":"off"},{"port":2,"status":"on"},{"port":3,"status": "off"},{"port": 4,"status":"off"}]
+GET /api/relay?metod=on&port=(0-3|all)
+GET /api/relay?metod=off&port=(0-3|all)
+GET /api/relay?metod=status&port=(0-3|all)
+```
+
+Управление через Telegram
+
+```
+on (0-3|all)
+off (0-3|all)
+set_name 0-3 relay_name
 ```
