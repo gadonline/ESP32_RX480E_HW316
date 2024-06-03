@@ -77,12 +77,54 @@ char* urlencode(char* originalText)
     return encodedText;
 }
 
+char *urlDecode(const char *str) {
+  int d = 0; /* whether or not the string is decoded */
+
+  char *dStr = malloc(strlen(str) + 1);
+  char eStr[] = "00"; /* for a hex code */
+
+  strcpy(dStr, str);
+
+  while(!d) {
+    d = 1;
+    int i; /* the counter for the string */
+
+    for(i=0;i<strlen(dStr);++i) {
+
+      if(dStr[i] == '%') {
+        if(dStr[i+1] == 0)
+          return dStr;
+
+        if(isxdigit(dStr[i+1]) && isxdigit(dStr[i+2])) {
+
+          d = 0;
+
+          /* combine the next to numbers into one */
+          eStr[0] = dStr[i+1];
+          eStr[1] = dStr[i+2];
+
+          /* convert it to decimal */
+          long int x = strtol(eStr, NULL, 16);
+
+          /* remove the hex */
+          memmove(&dStr[i+1], &dStr[i+3], strlen(&dStr[i+3])+1);
+
+          dStr[i] = x;
+        }
+      }
+    }
+  }
+
+  return dStr;
+}
+
 static esp_err_t api_relay_handler(httpd_req_t *req)
 {
     char*  buf;
     size_t buf_len;
     char   api_metod[12];
     char   api_relay_port[8];
+    char   api_relay_name[80];
     int output_level = 2;
     buf_len = httpd_req_get_url_query_len(req) + 1;
     cJSON* relay_list_json = cJSON_CreateObject();
@@ -93,14 +135,33 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
             ESP_LOGI(TAG, "Found URL query => %s", buf);
             if ((httpd_query_key_value(buf, "metod", api_metod, sizeof(api_metod)) == ESP_OK) &&
                 (httpd_query_key_value(buf, "port", api_relay_port, sizeof(api_relay_port)) == ESP_OK)) {
+                
+                int port_number = port_detect(api_relay_port);
+                
                 if (!strcmp("on", api_metod)) {
                     output_level = 1;
                 } else if (!strcmp("off", api_metod)) {
                     output_level = 0;
+                } else if (!strcmp("set_name", api_metod)) {
+                    if (port_number != 42 &&
+                       (httpd_query_key_value(buf, "name", api_relay_name, sizeof(api_relay_name)) == ESP_OK)) {
+                        nvs_handle_t my_handle;
+                        esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+                        if (err != ESP_OK) {
+                            printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+                        } else {
+                            printf ("set_name_%d: %s\n", port_number, urlDecode(api_relay_name));
+                            strcpy(relay_list[port_number].relay_name, urlDecode(api_relay_name));
+                            char relay_key[12];
+                            sprintf(relay_key, "relay_%d", port_number);
+                            nvs_set_str(my_handle, relay_key, relay_list[port_number].relay_name);
+                            nvs_close(my_handle);
+                        }
+                        output_level = relay_list[port_number].gpio_output_level;
+                    }
                 }
                 
                 if (output_level != 2) {
-                    int port_number = port_detect(api_relay_port);
                     if (port_number != 42) {
                         printf("port: %d\n", port_number);
                         relay_list[port_number].gpio_output_level = output_level;
@@ -138,6 +199,7 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
             relay_json = cJSON_CreateObject();
             cJSON_AddStringToObject(relay_json, "port", port_str);
             cJSON_AddStringToObject(relay_json, "status", status_str);
+            cJSON_AddStringToObject(relay_json, "relay_name", relay_list[i].relay_name);
             cJSON_AddItemToObject(relay_list_json, name_str, relay_json);
         }
     }

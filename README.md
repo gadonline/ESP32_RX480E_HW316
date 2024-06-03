@@ -88,6 +88,7 @@ HTTP API
 GET /api/relay?metod=on&port=(0-3|all)
 GET /api/relay?metod=off&port=(0-3|all)
 GET /api/relay?metod=status&port=(0-3|all)
+GET /api/relay?metod=set_name&port=(0-3)
 ```
 
 Управление через Telegram
@@ -95,5 +96,5 @@ GET /api/relay?metod=status&port=(0-3|all)
 ```
 on (0-3|all)
 off (0-3|all)
-set_name 0-3 relay_name
+set_name (0-3) relay_name
 ```
